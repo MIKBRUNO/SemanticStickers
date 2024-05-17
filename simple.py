@@ -8,8 +8,6 @@ import os
 
 bot = telebot.TeleBot(os.getenv('TELEGRAM_BOT_TOKEN'))
 
-client = QdrantClient(url=os.getenv('QDRANT_URL'))
-
 
 @bot.message_handler(content_types=['sticker'])
 def handle_sticker(message):
@@ -27,6 +25,7 @@ def handle_sticker(message):
     if response.status_code != 200:
         bot.send_message(message.chat.id, "Couldn't vectorize sticker")
         return
+    client = QdrantClient(url=os.getenv('QDRANT_URL'))
     res = client.count(
         collection_name="SemanticStickers",
         count_filter=Filter(
@@ -60,15 +59,17 @@ def handle_sticker(message):
         ]
     )
     bot.send_message(message.chat.id, 'Uploaded!')
-    
+    client.close()
+
 
 @bot.message_handler(content_types=['text'])
-def handle_sticker_id(message):
+def handle_search_query(message):
     url = os.getenv('CLIP_URL') + '/process_text'
     response = requests.post(url, json={'text': message.text})
     if response.status_code != 200:
         bot.send_message(message.chat.id, "Couldn't find sticker")
         return
+    client = QdrantClient(url=os.getenv('QDRANT_URL'))
     result = client.search(
         collection_name='SemanticStickers',
         query_vector=response.json()['embed'],
@@ -88,6 +89,53 @@ def handle_sticker_id(message):
         bot.send_message(message.chat.id, "Not found")
         return
     bot.send_sticker(message.chat.id, result[0].payload['file_id'])
+    client.close()
 
 
-bot.polling()
+@bot.inline_handler(func=lambda query: True)
+def handle_inline_query(inline_query: telebot.types.InlineQuery):
+    url = os.getenv('CLIP_URL') + '/process_text'
+    response = requests.post(url, json={'text': inline_query.query})
+    if response.status_code != 200:
+        r = telebot.types.InlineQueryResultArticle(
+            '1',
+            'Sorry!',
+            telebot.types.InputTextMessageContent('Some eternal error occurred')
+        )
+        bot.answer_inline_query(inline_query.id, [r])
+        return
+    client = QdrantClient(url=os.getenv('QDRANT_URL'))
+    result = client.search(
+        collection_name='SemanticStickers',
+        query_vector=response.json()['embed'],
+        query_filter=Filter(
+            must=[
+                FieldCondition(
+                    key='chat_id',
+                    match=MatchValue(value=inline_query.from_user.id)
+                )
+            ]
+        ),
+        limit=30,
+        with_payload=True,
+        with_vectors=False
+    )
+    if len(result) == 0:
+        r = telebot.types.InlineQueryResultArticle(
+            '1',
+            'It seems like you didn\'t load any stickers yet',
+            telebot.types.InputTextMessageContent('')
+        )
+        bot.answer_inline_query(inline_query.id, [r])
+        return
+    client.close()
+    stickers = []
+    for i in range(len(result)):
+        stickers.append(telebot.types.InlineQueryResultCachedSticker(
+            str(i),
+            result[i].payload['file_id']
+        ))
+    bot.answer_inline_query(inline_query.id, stickers, cache_time=1)
+
+
+bot.infinity_polling()
