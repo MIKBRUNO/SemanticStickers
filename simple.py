@@ -124,7 +124,7 @@ def handle_inline_query(inline_query: telebot.types.InlineQuery):
         r = telebot.types.InlineQueryResultArticle(
             '1',
             'It seems like you didn\'t load any stickers yet',
-            telebot.types.InputTextMessageContent('')
+            telebot.types.InputTextMessageContent('@SemanticStickersBot')
         )
         bot.answer_inline_query(inline_query.id, [r])
         return
@@ -135,7 +135,7 @@ def handle_inline_query(inline_query: telebot.types.InlineQuery):
             str(i),
             result[i].payload['file_id']
         ))
-    bot.answer_inline_query(inline_query.id, stickers, cache_time=1)
+    bot.answer_inline_query(inline_query.id, stickers, cache_time=1, is_personal=True)
 
 
 bot.infinity_polling()
