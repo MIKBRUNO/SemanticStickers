@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-alpine
+FROM anibali/pytorch:2.0.1-nocuda
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 COPY . .
