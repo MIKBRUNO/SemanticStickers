@@ -7,6 +7,9 @@ import uuid
 import os
 
 bot = telebot.TeleBot(os.getenv('TELEGRAM_BOT_TOKEN'))
+qdrant_url = os.getenv('QDRANT_URL')
+qdrant_api_key = os.getenv('QDRANT_API_KEY')
+clip_url = os.getenv('CLIP_URL')
 
 
 @bot.message_handler(content_types=['sticker'])
@@ -21,11 +24,11 @@ def handle_sticker(message):
     if response.status_code != 200:
         bot.send_message(message.chat.id, "Couldn't load a sticker")
         return
-    response = requests.post(os.getenv('CLIP_URL') + "/upload_image", files={'image': BytesIO(response.content)})
+    response = requests.post(clip_url + "/upload_image", files={'image': BytesIO(response.content)})
     if response.status_code != 200:
         bot.send_message(message.chat.id, "Couldn't vectorize sticker")
         return
-    client = QdrantClient(url=os.getenv('QDRANT_URL'))
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     res = client.count(
         collection_name="SemanticStickers",
         count_filter=Filter(
@@ -64,12 +67,12 @@ def handle_sticker(message):
 
 @bot.message_handler(content_types=['text'])
 def handle_search_query(message):
-    url = os.getenv('CLIP_URL') + '/process_text'
+    url = clip_url + '/process_text'
     response = requests.post(url, json={'text': message.text})
     if response.status_code != 200:
         bot.send_message(message.chat.id, "Couldn't find sticker")
         return
-    client = QdrantClient(url=os.getenv('QDRANT_URL'))
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     result = client.search(
         collection_name='SemanticStickers',
         query_vector=response.json()['embed'],
@@ -94,7 +97,7 @@ def handle_search_query(message):
 
 @bot.inline_handler(func=lambda query: True)
 def handle_inline_query(inline_query: telebot.types.InlineQuery):
-    url = os.getenv('CLIP_URL') + '/process_text'
+    url = clip_url + '/process_text'
     response = requests.post(url, json={'text': inline_query.query})
     if response.status_code != 200:
         r = telebot.types.InlineQueryResultArticle(
@@ -104,7 +107,7 @@ def handle_inline_query(inline_query: telebot.types.InlineQuery):
         )
         bot.answer_inline_query(inline_query.id, [r])
         return
-    client = QdrantClient(url=os.getenv('QDRANT_URL'))
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     result = client.search(
         collection_name='SemanticStickers',
         query_vector=response.json()['embed'],

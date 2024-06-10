@@ -1,0 +1,12 @@
+services:
+  clip-server:
+    build: ./clip-server
+    environment:
+      PORT: 5656
+  bot:
+    build: ./bot
+    environment:
+      CLIP_URL: "http://clip-server:5656"
+      TELEGRAM_API_TOKEN: ${TELEGRAM_API_TOKEN}
+      QDRANT_URL: ${QDRANT_URL}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}

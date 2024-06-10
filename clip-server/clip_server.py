@@ -2,6 +2,9 @@ from sentence_transformers import SentenceTransformer, util
 from flask import Flask, request, jsonify
 from PIL import Image
 import io
+import os
+
+port = os.getenv("PORT")
 
 img_model = SentenceTransformer('sentence-transformers/clip-ViT-L-14')
 app = Flask('CLIP API')
@@ -27,4 +30,4 @@ def process_text():
     return jsonify(response)
 
 
-app.run(host='localhost', port=5656)
+app.run(host='0.0.0.0', port=port)
