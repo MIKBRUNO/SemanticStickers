@@ -1,10 +1,12 @@
 services:
   clip-server:
     build: ./clip-server
+    restart: always
     environment:
       PORT: 5656
   bot:
     build: ./bot
+    restart: always
     environment:
       CLIP_URL: "http://clip-server:5656"
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
