@@ -1,8 +1,5 @@
 name: "Deploy"
 on:
-  pull_request:
-    branches:
-    - main
   workflow_dispatch:
 jobs:
   deploy_to_server:
