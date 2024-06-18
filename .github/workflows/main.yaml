@@ -10,14 +10,14 @@ jobs:
     name: Deploy
     steps:
     - name: Deploy to server
-      uses: cross-the-world/ssh-scp-ssh-pipelines@v1.1.4
+      uses: tiyee/action-ssh@v1.0.1
       env:
         DOTENV: ${{ secrets.DEPLOY_DOTENV }}
       with:
         host: ${{ secrets.DEPLOY_HOST }}
-        user: ${{ secrets.DEPLOY_USER }}
-        key: ${{ secrets.DEPLOY_KEY }}
-        last_ssh: |
+        username: ${{ secrets.DEPLOY_USER }}
+        privateKey: ${{ secrets.DEPLOY_KEY }}
+        command: |
           cd /home/deploy/SemanticStickers
           echo $DEPLOY_DOTENV > .env
           echo "Dotenv file updated"
