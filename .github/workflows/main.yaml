@@ -1,8 +1,13 @@
 name: "Deploy"
 on:
+  pull_request:
+    branches: main
+    types:
+      - closed
   workflow_dispatch:
 jobs:
   deploy_to_server:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     name: Deploy
     steps:
@@ -15,7 +20,7 @@ jobs:
         username: ${{ secrets.DEPLOY_USER }}
         key: ${{ secrets.DEPLOY_KEY }}
         envs: DOTENV
-        command: |
+        script: |
           cd /home/deploy/SemanticStickers
           echo $DOTENV > .env
           echo "Dotenv file updated"
