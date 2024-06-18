@@ -19,7 +19,7 @@ jobs:
         privateKey: ${{ secrets.DEPLOY_KEY }}
         command: |
           cd /home/deploy/SemanticStickers
-          echo $DEPLOY_DOTENV > .env
+          echo $DOTENV > .env
           echo "Dotenv file updated"
           echo "Git pulling..."
           git pull
