@@ -7,13 +7,14 @@ jobs:
     name: Deploy
     steps:
     - name: Deploy to server
-      uses: tiyee/action-ssh@v1.0.1
+      uses: appleboy/ssh-action@v0.1.5
       env:
         DOTENV: ${{ secrets.DEPLOY_DOTENV }}
       with:
         host: ${{ secrets.DEPLOY_HOST }}
         username: ${{ secrets.DEPLOY_USER }}
-        privateKey: ${{ secrets.DEPLOY_KEY }}
+        key: ${{ secrets.DEPLOY_KEY }}
+        envs: DOTENV
         command: |
           cd /home/deploy/SemanticStickers
           echo $DOTENV > .env
