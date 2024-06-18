@@ -11,13 +11,15 @@ jobs:
     steps:
     - name: Deploy to server
       uses: cross-the-world/ssh-scp-ssh-pipelines@v1.1.4
+      env:
+        DOTENV: ${{ secrets.DEPLOY_DOTENV }}
       with:
         host: ${{ secrets.DEPLOY_HOST }}
         user: ${{ secrets.DEPLOY_USER }}
         key: ${{ secrets.DEPLOY_KEY }}
         last_ssh: |
           cd /home/deploy/SemanticStickers
-          echo ${{ secrests.DEPLOY_DOTENV }} > .env
+          echo $DEPLOY_DOTENV > .env
           echo "Dotenv file updated"
           echo "Git pulling..."
           git pull
