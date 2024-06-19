@@ -4,11 +4,19 @@ services:
     restart: always
     environment:
       PORT: 5656
-  bot:
+  bot1:
     build: ./bot
     restart: always
     environment:
       CLIP_URL: "http://clip-server:5656"
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT1_TOKEN}
+      QDRANT_URL: ${QDRANT_URL}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+  bot2:
+    build: ./bot
+    restart: always
+    environment:
+      CLIP_URL: "http://clip-server:5656"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT2_TOKEN}
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
