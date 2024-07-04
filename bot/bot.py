@@ -11,6 +11,11 @@ qdrant_url = os.getenv('QDRANT_URL')
 qdrant_api_key = os.getenv('QDRANT_API_KEY')
 clip_url = os.getenv('CLIP_URL')
 
+@bot.message_handler(commands=['donate'])
+def send_crypto_address(message):
+    wallet_address = "UQCWjkiD4mYn-vkl53WVrttQ9AAFLpoSgh1OLXIyjsmRhsSj"
+    bot.send_message(message.chat.id, f"You're on right way, now to make telegram a better place, just send donation to this TON address: {wallet_address} Humanity will be proud of you!")
+
 
 @bot.message_handler(content_types=['sticker'])
 def handle_sticker(message):
@@ -140,10 +145,6 @@ def handle_inline_query(inline_query: telebot.types.InlineQuery):
         ))
     bot.answer_inline_query(inline_query.id, stickers, cache_time=1, is_personal=True)
 
-@bot.message_handler(commands=['/donate'])
-def send_crypto_address(message):
-    wallet_address = "UQCWjkiD4mYn-vkl53WVrttQ9AAFLpoSgh1OLXIyjsmRhsSj"
-    bot.send_message(message.chat.id, f"You're on right way, now to make telegram a better place, just send donation to this TON address: {wallet_address} Humanity will be proud of you!")
 
 
 bot.infinity_polling()
