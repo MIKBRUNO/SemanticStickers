@@ -21,7 +21,7 @@ def send_crypto_address(message):
 def handle_sticker(message):
     sticker: telebot.types.Sticker = message.sticker
     if sticker.is_video or sticker.is_animated:
-        bot.send_message(message.chat.id, 'Not supported sticker')
+        bot.send_message(message.chat.id, 'Animated stickers are not supported yet(')
         return
     file = bot.get_file(sticker.file_id)
     file_url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
@@ -72,6 +72,9 @@ def handle_sticker(message):
 
 @bot.message_handler(content_types=['text'])
 def handle_search_query(message):
+    if message.text.startswith('/'):
+        #skip commands
+        return
     url = clip_url + '/process_text'
     response = requests.post(url, json={'text': message.text})
     if response.status_code != 200:
