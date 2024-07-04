@@ -21,7 +21,7 @@ def send_crypto_address(message):
 def handle_sticker(message):
     sticker: telebot.types.Sticker = message.sticker
     if sticker.is_video or sticker.is_animated:
-        bot.send_message(message.chat.id, 'Animated stickers are not supported yet(')
+        bot.send_message(message.chat.id, 'Animated stickers are not supported yet (')
         return
     file = bot.get_file(sticker.file_id)
     file_url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
