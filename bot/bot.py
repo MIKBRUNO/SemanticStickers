@@ -1,37 +1,39 @@
 import telebot
+import telebot.async_telebot as atelebot
 import requests
 from io import BytesIO
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue
 import uuid
 import os
+import asyncio
 
-bot = telebot.TeleBot(os.getenv('TELEGRAM_BOT_TOKEN'))
+bot = atelebot.AsyncTeleBot(os.getenv('TELEGRAM_BOT_TOKEN'))
 qdrant_url = os.getenv('QDRANT_URL')
 qdrant_api_key = os.getenv('QDRANT_API_KEY')
 clip_url = os.getenv('CLIP_URL')
 
 @bot.message_handler(commands=['donate'])
-def send_crypto_address(message):
+async def send_crypto_address(message):
     wallet_address = "UQCWjkiD4mYn-vkl53WVrttQ9AAFLpoSgh1OLXIyjsmRhsSj"
-    bot.send_message(message.chat.id, f"You're on right way, now to make telegram a better place, just send donation to this TON address: {wallet_address} Humanity will be proud of you!")
+    await bot.send_message(message.chat.id, f"You're on right way, now to make telegram a better place, just send donation to this TON address: {wallet_address} Humanity will be proud of you!")
 
 
 @bot.message_handler(content_types=['sticker'])
-def handle_sticker(message):
+async def handle_sticker(message):
     sticker: telebot.types.Sticker = message.sticker
     if sticker.is_video or sticker.is_animated:
-        bot.send_message(message.chat.id, 'Animated stickers are not supported yet (')
+        await bot.send_message(message.chat.id, 'Animated stickers are not supported yet (')
         return
-    file = bot.get_file(sticker.file_id)
+    file = await bot.get_file(sticker.file_id)
     file_url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
     response = requests.get(file_url)
     if response.status_code != 200:
-        bot.send_message(message.chat.id, "Couldn't load a sticker")
+        await bot.send_message(message.chat.id, "Couldn't load a sticker")
         return
     response = requests.post(clip_url + "/upload_image", files={'image': BytesIO(response.content)})
     if response.status_code != 200:
-        bot.send_message(message.chat.id, "Couldn't vectorize sticker")
+        await bot.send_message(message.chat.id, "Couldn't vectorize sticker")
         return
     client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     res = client.count(
@@ -50,7 +52,7 @@ def handle_sticker(message):
         )
     )
     if res.count > 0:
-        bot.send_message(message.chat.id, 'Duplicate')
+        await bot.send_message(message.chat.id, 'Duplicate')
         return
     client.upload_points(
         collection_name="SemanticStickers",
@@ -66,19 +68,19 @@ def handle_sticker(message):
                 })
         ]
     )
-    bot.send_message(message.chat.id, 'Uploaded!')
+    await bot.send_message(message.chat.id, 'Uploaded!')
     client.close()
 
 
 @bot.message_handler(content_types=['text'])
-def handle_search_query(message):
+async def handle_search_query(message):
     if message.text.startswith('/'):
         #skip commands
         return
     url = clip_url + '/process_text'
     response = requests.post(url, json={'text': message.text})
     if response.status_code != 200:
-        bot.send_message(message.chat.id, "Couldn't find sticker")
+        await bot.send_message(message.chat.id, "Couldn't find sticker")
         return
     client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     result = client.search(
@@ -97,14 +99,14 @@ def handle_search_query(message):
         with_vectors=False
     )
     if len(result) == 0:
-        bot.send_message(message.chat.id, "Not found")
+        await bot.send_message(message.chat.id, "Not found")
         return
-    bot.send_sticker(message.chat.id, result[0].payload['file_id'])
+    await bot.send_sticker(message.chat.id, result[0].payload['file_id'])
     client.close()
 
 
 @bot.inline_handler(func=lambda query: True)
-def handle_inline_query(inline_query: telebot.types.InlineQuery):
+async def handle_inline_query(inline_query: telebot.types.InlineQuery):
     url = clip_url + '/process_text'
     response = requests.post(url, json={'text': inline_query.query})
     if response.status_code != 200:
@@ -113,7 +115,7 @@ def handle_inline_query(inline_query: telebot.types.InlineQuery):
             'Sorry!',
             telebot.types.InputTextMessageContent('Some eternal error occurred')
         )
-        bot.answer_inline_query(inline_query.id, [r])
+        await bot.answer_inline_query(inline_query.id, [r])
         return
     client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
     result = client.search(
@@ -137,7 +139,7 @@ def handle_inline_query(inline_query: telebot.types.InlineQuery):
             'It seems like you didn\'t load any stickers yet',
             telebot.types.InputTextMessageContent('@SemanticStickersBot')
         )
-        bot.answer_inline_query(inline_query.id, [r])
+        await bot.answer_inline_query(inline_query.id, [r])
         return
     client.close()
     stickers = []
@@ -146,8 +148,7 @@ def handle_inline_query(inline_query: telebot.types.InlineQuery):
             str(i),
             result[i].payload['file_id']
         ))
-    bot.answer_inline_query(inline_query.id, stickers, cache_time=1, is_personal=True)
+    await bot.answer_inline_query(inline_query.id, stickers, cache_time=1, is_personal=True)
 
 
-
-bot.infinity_polling()
+asyncio.run(bot.infinity_polling())
