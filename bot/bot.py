@@ -22,10 +22,11 @@ async def send_crypto_address(message):
 @bot.message_handler(content_types=['sticker'])
 async def handle_sticker(message):
     sticker: telebot.types.Sticker = message.sticker
-    if sticker.is_video or sticker.is_animated:
-        await bot.send_message(message.chat.id, 'Animated stickers are not supported yet (')
-        return
     file = await bot.get_file(sticker.file_id)
+
+    if sticker.is_video or sticker.is_animated:
+        file = await bot.get_file(sticker.thumb.file_id)
+    
     file_url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
     response = requests.get(file_url)
     if response.status_code != 200:
