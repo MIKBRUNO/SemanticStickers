@@ -4,6 +4,8 @@ services:
     restart: always
     environment:
       PORT: 5656
+    volumes:
+      - clipcache:/home/user/.cache
   bot1:
     build: ./bot
     restart: always
@@ -20,3 +22,6 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT2_TOKEN}
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
+
+volumes:
+  clipcache:
