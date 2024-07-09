@@ -63,7 +63,7 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
                 CLIP + "/upload_image",
                 data={"image": io}
             ) as response:
-                vector = response.json()['embed']
+                vector = (await response.json())['embed']
         logger.debug(f"Embedding: {vector}")
         
         # save to qdrant storage

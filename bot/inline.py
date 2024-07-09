@@ -36,7 +36,7 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
                 ]
             )
         )
-        if uploaded.count >= 1:
+        if uploaded.count <= 0:
             await inline_query.answer([], cache_time=0, is_personal=True,
                               switch_pm_text="Send some stickers!",
                               switch_pm_parameter="a")
@@ -50,7 +50,7 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
                 CLIP + "/process_text",
                 json={"text": inline_query.query}
             ) as response:
-                vector = response.json()['embed']
+                vector = (await response.json())['embed']
         logger.debug(f"Embedding: {vector}")
 
         # search for nearest 50 stickers
@@ -76,7 +76,7 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
                 sticker_file_id=found[i].payload['file_id'])
             for i in range(50)]
         logger.info("Successfully found stickers")
-        await inline_query.answer(result, cache_time=0, is_personal=True)
+        await inline_query.answer(result, cache_time=0, is_personal=True, switch_pm_text=None, switch_pm_parameter=None)
     except:
         await inline_query.answer([], cache_time=0, is_personal=True,
                               switch_pm_text="Oops...",
