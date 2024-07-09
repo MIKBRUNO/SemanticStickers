@@ -1,5 +1,6 @@
 from os import getenv
 import logging
+import traceback
 import uuid
 
 from aiohttp import ClientSession
@@ -86,7 +87,7 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
                     f"from user {message.from_user.username}")
         await message.answer('Uploaded!')
     except:
-        logger.error("Error occured, I hope some one wrote more about it")
+        logger.error(traceback.format_exc())
         await message.answer('Could not upload your sticker( Try next time!')
     finally:
         await qdrant.close()
