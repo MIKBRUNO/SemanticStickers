@@ -1,5 +1,6 @@
 from os import getenv
 import logging
+import traceback
 
 from aiogram import Router, types
 from aiohttp import ClientSession
@@ -77,10 +78,10 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
             for i in range(50)]
         logger.info("Successfully found stickers")
         await inline_query.answer(result, cache_time=0, is_personal=True, switch_pm_text=None, switch_pm_parameter=None)
-    except:
+    except Exception as e:
         await inline_query.answer([], cache_time=0, is_personal=True,
                               switch_pm_text="Oops...",
                               switch_pm_parameter="o")
-        logger.error("Error occured, I hope some one wrote more about it")
+        logger.error(traceback.format_exc())
     finally:
         await qdrant.close()
