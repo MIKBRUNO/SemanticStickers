@@ -14,6 +14,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT1_TOKEN}
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
+      QDRANT_COLLECTION: "SemanticStickers"
   bot2:
     build: ./bot
     restart: always
@@ -22,6 +23,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT2_TOKEN}
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
+      QDRANT_COLLECTION: "SemanticStickers"
 
 volumes:
   clipcache:

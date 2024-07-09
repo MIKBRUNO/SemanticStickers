@@ -1,3 +1,4 @@
-pyTelegramBotAPI
 qdrant-client
 aiohttp
+aiogram
+coloredlogs
