@@ -26,7 +26,7 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
     """
     sticker = message.sticker
     logger.info(f"New sticker request from user {message.from_user.username}"
-                f", unique_id: {sticker.file_unique_id}")
+                f", unique_id: {sticker.file_unique_id}, id: {sticker.file_id}")
     
     try:
         # check if this sticker is already in storage

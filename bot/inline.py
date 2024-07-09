@@ -2,6 +2,7 @@ from os import getenv
 import logging
 
 from aiogram import Router, types
+from aiohttp import ClientSession
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
@@ -39,9 +40,47 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
             await inline_query.answer([], cache_time=0, is_personal=True,
                               switch_pm_text="Send some stickers!",
                               switch_pm_parameter="a")
-            logger.debug(f"No uploaded stickers for user {inline_query.from_user.username}")
+            logger.info(f"No uploaded stickers for user {inline_query.from_user.username}")
             return
+        
+        # encode inline query
+        vector = []
+        async with ClientSession() as session:
+            async with session.post(
+                CLIP + "/process_text",
+                json={"text": inline_query.query}
+            ) as response:
+                vector = response.json()['embed']
+        logger.debug(f"Embedding: {vector}")
+
+        # search for nearest 50 stickers
+        found = await qdrant.search(
+            collection_name=COLLECTION,
+            query_vector=vector,
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key='chat_id',
+                        match=MatchValue(value=inline_query.from_user.id)
+                    )
+                ]
+            ),
+            limit=50,
+            with_payload=True,
+            with_vectors=False
+        )
+        logger.debug(f"Found {len(found)} stickers")
+        result = [
+            types.InlineQueryResultCachedSticker(
+                id=str(i),
+                sticker_file_id=found[i].payload['file_id'])
+            for i in range(50)]
+        logger.info("Successfully found stickers")
+        await inline_query.answer(result, cache_time=0, is_personal=True)
     except:
+        await inline_query.answer([], cache_time=0, is_personal=True,
+                              switch_pm_text="Oops...",
+                              switch_pm_parameter="o")
         logger.error("Error occured, I hope some one wrote more about it")
     finally:
         await qdrant.close()
