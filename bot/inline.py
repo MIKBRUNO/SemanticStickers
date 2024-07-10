@@ -75,7 +75,7 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
             types.InlineQueryResultCachedSticker(
                 id=str(i),
                 sticker_file_id=found[i].payload['file_id'])
-            for i in range(50)]
+            for i in range(len(found))]
         logger.info("Successfully found stickers")
         await inline_query.answer(result, cache_time=0, is_personal=True, switch_pm_text=None, switch_pm_parameter=None)
     except Exception as e:
