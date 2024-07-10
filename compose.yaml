@@ -1,4 +1,7 @@
 services:
+  redis:
+    image: redis:alpine
+    restart: always
   clip-server:
     build: ./clip-server
     restart: always
@@ -15,6 +18,7 @@ services:
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       QDRANT_COLLECTION: "SemanticStickers"
+      REDIS_URL: redis://redis
   bot2:
     build: ./bot
     restart: always
@@ -24,6 +28,7 @@ services:
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       QDRANT_COLLECTION: "SemanticStickers"
+      REDIS_URL: redis://redis
 
 volumes:
   clipcache:
