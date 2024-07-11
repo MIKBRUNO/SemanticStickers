@@ -1,33 +1,28 @@
-from sentence_transformers import SentenceTransformer, util
-from flask import Flask, request, jsonify
-from PIL import Image
-import io
-import os
+from transformers import AutoTokenizer, CLIPTextModelWithProjection
+from transformers import AutoProcessor, CLIPVisionModelWithProjection
+import multiprocessing as mp
+from redis import Redis
+# from PIL import Image
+# import io
+from os import getenv
 
-port = os.getenv("PORT")
-
-img_model = SentenceTransformer('sentence-transformers/clip-ViT-L-14')
-app = Flask('CLIP API')
-
-
-@app.route('/upload_image', methods=['POST'])
-def upload_image():
-    image_file = request.files['image']
-    data = image_file.read()
-    img = Image.open(io.BytesIO(data))
-    response = {
-        'embed': img_model.encode(img).tolist()
-    }
-    return jsonify(response)
+REDIS = getenv("REDIS_URL")
 
 
-@app.route('/process_text', methods=['POST'])
-def process_text():
-    text = request.json['text']
-    response = {
-        'embed': img_model.encode(text).tolist()
-    }
-    return jsonify(response)
+def image_processor() -> None:
+    model = CLIPVisionModelWithProjection.from_pretrained("openai/clip-vit-large-patch14")
+    processor = AutoProcessor.from_pretrained("openai/clip-vit-large-patch14")
+    pass
 
 
-app.run(host='0.0.0.0', port=port)
+def text_processor() -> None:
+    pass
+
+
+if __name__ == "__main__":
+    img = mp.Process(target=image_processor, daemon=True)
+    txt = mp.Process(target=text_processor, daemon=True)
+    img.start()
+    txt.start()
+    img.join()
+    txt.join()

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM anibali/pytorch:2.0.1-nocuda
+FROM huggingface/transformers-pytorch-cpu
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 COPY . .

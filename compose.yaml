@@ -3,7 +3,7 @@ services:
     build: ./clip-server
     restart: always
     environment:
-      PORT: 5656
+      REDIS_URL: redis://redis
     volumes:
       - clipcache:/home/user/.cache
   bot1:
