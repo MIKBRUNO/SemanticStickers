@@ -2,3 +2,5 @@ qdrant-client
 aiohttp
 aiogram
 coloredlogs
+bson
+numpy

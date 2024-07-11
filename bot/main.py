@@ -33,6 +33,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.BASIC_FORMAT
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.run(main())
