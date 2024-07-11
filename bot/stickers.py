@@ -16,6 +16,7 @@ QDRANT = getenv('QDRANT_URL')
 QDRANT_API_KEY = getenv('QDRANT_API_KEY')
 CLIP = getenv('CLIP_URL')
 COLLECTION = getenv('QDRANT_COLLECTION')
+REDIS = getenv('REDIS_URL')
 
 logger = logging.getLogger(__name__)
 stickers_router = Router(name="stickers")
@@ -61,7 +62,7 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
             file = await bot.get_file(message.sticker.thumbnail.file_id)
         # io = await bot.download(file)
         url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
-        vector = await CLIPClient().process_image(url)
+        vector = await CLIPClient(REDIS).process_image(url)
         # vector = []
         # async with ClientSession() as session:
         #     async with session.post(
