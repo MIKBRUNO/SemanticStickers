@@ -1,29 +1,47 @@
 services:
+  redis:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - redis-dump:/data
+  
   clip-server:
     build: ./clip-server
     restart: always
+    depends_on:
+      - redis
     environment:
-      PORT: 5656
+      REDIS_URL: redis://redis
+      BATCH_SIZE: 2
     volumes:
-      - clipcache:/home/user/.cache
+      - clipcache:/root/.cache
+  
   bot1:
     build: ./bot
     restart: always
+    depends_on:
+      - clip-server
+      - redis
     environment:
-      CLIP_URL: "http://clip-server:5656"
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT1_TOKEN}
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       QDRANT_COLLECTION: "SemanticStickers"
+      REDIS_URL: redis://redis
+  
   bot2:
     build: ./bot
     restart: always
+    depends_on:
+      - clip-server
+      - redis
     environment:
-      CLIP_URL: "http://clip-server:5656"
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT2_TOKEN}
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       QDRANT_COLLECTION: "SemanticStickers"
+      REDIS_URL: redis://redis
 
 volumes:
   clipcache:
+  redis-dump:

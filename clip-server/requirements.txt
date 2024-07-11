@@ -1,3 +1,6 @@
-sentence-transformers
-Flask
+transformers
 pillow
+redis
+bson
+aiohttp
+numpy
