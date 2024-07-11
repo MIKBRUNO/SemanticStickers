@@ -4,3 +4,4 @@ aiogram
 coloredlogs
 bson
 numpy
+redis
