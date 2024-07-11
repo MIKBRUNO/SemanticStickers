@@ -25,11 +25,10 @@ where `seq` is sequence number gotten by incrementing `request:count` and `url` 
 ```
  {
     "seq": <sequence number>,
-    "text": <text to encode>,
-    "id": <id to locate request>
+    "text": <text to encode>
  }
  ```
-where `seq` is sequence number gotten by incrementing `request:count`. `text` is just text to encode. `id` is unique id of text request thread.
+where `seq` is sequence number gotten by incrementing `request:count`. `text` is just text to encode. Requests are labeles by some unique id of text request thread.
 
 It is assumed that there are several different threads of text requests and for each thread it is necessary to process only the last request.
 

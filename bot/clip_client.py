@@ -65,7 +65,7 @@ class CLIPClient:
             redis.hset(
                 TEXT_QUEUE,
                 key=id,
-                value=dumps({"seq": seq, "text": text, "id": id})
+                value=dumps({"seq": seq, "text": text})
             ),
             redis.lset(TEXT_FLAG, 0, "available")
         )
