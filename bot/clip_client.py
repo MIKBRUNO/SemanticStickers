@@ -1,13 +1,13 @@
 from os import getenv
+import logging
 from bson import loads, dumps
 from asyncio import Event, create_task, Task
-import logging
 from numpy import frombuffer, float32
+from numpy.typing import ArrayLike
+from redis.asyncio import Redis
 
-from redis.asyncio import Redis, ConnectionPool
 
 logger = logging.getLogger(__name__)
-REDIS = getenv("REDIS_URL")
 IMAGE_QUEUE = "request:images"
 REQUEST_COUNTER = "request:count"
 RESPONSE_QUEUE = "response"
@@ -19,7 +19,7 @@ class CLIPClient:
     for incoming responses
     """
 
-    async def process_image(self, image_url: str) -> list[float]:
+    async def process_image(self, image_url: str) -> ArrayLike:
         """Sends image processing request
         Attributes:
             image_url (str): url of an image with which we can download an
@@ -29,7 +29,7 @@ class CLIPClient:
             CLIPServerException: raises when server returns error code, may
             happen if image_url was bad
         """
-        redis = Redis.from_url(REDIS)
+        redis = Redis.from_url(self._redis_url)
         seq = await redis.incr(REQUEST_COUNTER)
         request = _Request(seq)
         self._requests[seq] = request
@@ -42,10 +42,10 @@ class CLIPClient:
                      f"answer={response}")
         if response['code'] == 'ERROR':
             raise CLIPServerException(response['answer'])
-        return frombuffer(response['answer'], dtype=float32).tolist()
+        return frombuffer(response['answer'], dtype=float32)
 
 
-    async def process_text(self, text: str) -> list[float]:
+    async def process_text(self, text: str) -> ArrayLike:
         """Sends text processing request
         
         Attributes:
@@ -65,12 +65,12 @@ class CLIPClient:
         return cls._instance
     
 
-    def __init__(self) -> None:
-        # pending requests
+    def __init__(self, redis_url: str) -> None:
+        self._redis_url = redis_url
         self._requests = {}
         # Here we create new task that listens for incoming responses on redis
         async def listener():
-            r = Redis.from_url(REDIS)
+            r = Redis.from_url(self._redis_url)
             try:
                 while True:
                     _, banswer = await r.brpop(RESPONSE_QUEUE)
