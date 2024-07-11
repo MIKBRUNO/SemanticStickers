@@ -17,6 +17,10 @@ where `seq` is sequence number gotten by incrementing `request:count` and `url` 
 
 ---
 
+`request:text-flag`: Redis list, producer (client) must `lset 0 "available"` it to notify consumer. Consumer must wait on `blpop` for notifies.
+
+---
+
 `request:texts`: Redis hashtable of strings. Strings are BSON dumps with schema
 ```
  {

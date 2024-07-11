@@ -1,7 +1,7 @@
 from os import getenv
 import logging
 from bson import loads, dumps
-from asyncio import Event, create_task, Task
+from asyncio import Event, create_task, Task, gather
 from numpy import frombuffer, float32
 from numpy.typing import ArrayLike
 from redis.asyncio import Redis
@@ -10,6 +10,7 @@ from redis.asyncio import Redis
 logger = logging.getLogger(__name__)
 IMAGE_QUEUE = "request:images"
 TEXT_QUEUE = "request:texts"
+TEXT_FLAG = "request:text-flag"
 REQUEST_COUNTER = "request:count"
 RESPONSE_QUEUE = "response"
 
@@ -60,10 +61,13 @@ class CLIPClient:
         seq = await redis.incr(REQUEST_COUNTER)
         request = _Request(seq)
         self._requests[seq] = request
-        await redis.hset(
-            TEXT_QUEUE,
-            key=id,
-            value=dumps({"seq": seq, "text": text, "id": id})
+        await gather(
+            redis.hset(
+                TEXT_QUEUE,
+                key=id,
+                value=dumps({"seq": seq, "text": text, "id": id})
+            ),
+            redis.lset(TEXT_FLAG, 0, "available")
         )
         await redis.aclose()
         logger.debug(f"Sent process_text request with seq={seq}")
