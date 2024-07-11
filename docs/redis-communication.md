@@ -2,7 +2,7 @@
 Basis reference for communication beetween client and CLIP server via Redis
 
 ## Requests
-`request:images`: Redis list of strings. Strings are JSON dumps with schema
+`request:images`: Redis list of strings. Strings are BSON dumps with schema
 ```
  {
     "seq": <sequence number>,
@@ -20,7 +20,7 @@ where seq is sequence number gotten by incrementing `request:count` and url is v
 `request:texts`: ...
 
 ## Responses
-All responses are placed at `response` Redis list and are pickled dicts with schema
+All responses are placed at `response` Redis list and are BSON dumps with schema
 ```
 {
     "seq": <sequence number>,

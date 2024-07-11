@@ -1,8 +1,8 @@
 from os import getenv
-from json import dumps
-from pickle import loads
-from asyncio import Event
+from bson import loads, dumps
+from asyncio import Event, create_task, Task
 import logging
+from numpy import frombuffer, float32
 
 from redis.asyncio import Redis, ConnectionPool
 
@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 REDIS = getenv("REDIS_URL")
 IMAGE_QUEUE = "request:images"
 REQUEST_COUNTER = "request:count"
+RESPONSE_QUEUE = "response"
 
 class CLIPClient:
     """Client for interacting with CLIP server via Redis
@@ -28,11 +29,12 @@ class CLIPClient:
             CLIPServerException: raises when server returns error code, may
             happen if image_url was bad
         """
-        redis = Redis.from_pool(self._pool)
+        redis = Redis.from_url(REDIS)
         seq = await redis.incr(REQUEST_COUNTER)
-        request = self._Request()
+        request = _Request(seq)
         self._requests[seq] = request
         await redis.lpush(IMAGE_QUEUE, dumps({"seq": seq, "url": image_url}))
+        await redis.aclose()
         logger.debug(f"Sent process_image request with seq={seq}")
         await request.event.wait()
         response = request.answer
@@ -40,7 +42,7 @@ class CLIPClient:
                      f"answer={response}")
         if response['code'] == 'ERROR':
             raise CLIPServerException(response['answer'])
-        return response['embedding']
+        return frombuffer(response['answer'], dtype=float32).tolist()
 
 
     async def process_text(self, text: str) -> list[float]:
@@ -64,38 +66,51 @@ class CLIPClient:
     
 
     def __init__(self) -> None:
-        self._pool = ConnectionPool.from_url(REDIS)
         # pending requests
         self._requests = {}
         # Here we create new task that listens for incoming responses on redis
-        pass
+        async def listener():
+            r = Redis.from_url(REDIS)
+            try:
+                while True:
+                    _, banswer = await r.brpop(RESPONSE_QUEUE)
+                    answer = loads(banswer)
+                    logger.debug(f"Catch CLIP server response seq={answer['seq']}")
+                    req: _Request = self._requests[answer['seq']]
+                    req.response(answer)
+            finally:
+                await r.aclose()
+                logger.info("CLIP server reponse listening stopped properly")
+        self._listener_task: Task = create_task(listener())
+        logger.info("Started listening for CLIP server reponses")
 
 
-    class _Request:
-        """Class for response delivering
+    def __del__(self):
+        self._listener_task.cancel()
+
+
+class _Request:
+    """Class for response delivering
+    """
+    ERROR = "ERROR"
+    SUCCESS = "SUCCESS"
+    def __init__(self, seq: int) -> None:
+        self.event = Event()
+        self.answer: dict = {
+            "seq": seq,
+            "code": self.ERROR,
+            "answer": "Request not waited!"
+        }
+    
+
+    def response(self, answer: dict) -> None:
+        """Sets the _Request event
+
+        Attributes:
+            answer (bytes): BSON encoded response from Redis
         """
-        def __init__(self) -> None:
-            self._event = Event()
-            self._answer: dict = None
-        
-
-        def answer(self) -> dict:
-            # TODO: пропиши константы кодов ответов
-            # TODO: этот класс
-            # TODO: поправь process_image
-            # TODO: можешь здесь же добавить логику парсинга ответа
-            # И даже добавить сюда логику дампа реквеста и его отправки
-            pass
-
-
-        def response(self, answer: bytes) -> None:
-            """Sets the _Request event
-
-            Attributes:
-                answer (bytes): 
-            """
-            self._answer = answer
-            self._event.set()
+        self.answer = answer
+        self.event.set()
 
 
 class CLIPServerException(Exception):
