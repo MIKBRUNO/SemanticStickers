@@ -17,7 +17,7 @@ where `seq` is sequence number gotten by incrementing `request:count` and `url` 
 
 ---
 
-`request:text-flag`: Redis list, producer (client) must `lset 0 "available"` it to notify consumer. Consumer must wait on `blpop` for notifies.
+`request:text-flag`: Redis Pub/Sub channel, producer (client) must publish here to notify consumer. Consumer (server) must subscribe and listen on this channel for notifies.
 
 ---
 

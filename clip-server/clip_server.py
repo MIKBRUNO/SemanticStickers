@@ -96,14 +96,22 @@ def text_processor() -> None:
     while True:
         r = Redis.from_url(REDIS)
         # load up to `BATCH_SIZE` requests
-        r.blpop(TEXT_FLAG)
+        # r.blpop(TEXT_FLAG)
+
+        # uhhh... fuck you Redis!
+        p = r.pubsub(ignore_subscribe_messages=True)
+        p.subscribe(TEXT_FLAG)
+        p.listen().__next__()
+        p.unsubscribe()
+        p.close()
+
         bson_requests = r.hgetall(TEXT_QUEUE)
         requests = [loads(req) for req in bson_requests.values()]
         texts = [req['text'] for req in requests]
         sequence_numbers = [req['seq'] for req in requests]
         inputs = tokenizer(texts, padding=True, return_tensors='pt')
         # some wierd torch magic idk
-        embeddings = model(**inputs).image_embeds.cpu().detach().numpy().astype(np.float32)
+        embeddings = model(**inputs).text_embeds.cpu().detach().numpy().astype(np.float32)
         answers = [
             dumps({"seq": seq, "code": SUCCESS, "answer": embed.tobytes()})
             for seq, embed in zip(sequence_numbers, embeddings)

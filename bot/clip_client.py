@@ -14,6 +14,15 @@ TEXT_FLAG = "request:text-flag"
 REQUEST_COUNTER = "request:count"
 RESPONSE_QUEUE = "response"
 
+def _singleton(class_):
+    instances = {}
+    def getinstance(*args, **kwargs):
+        if class_ not in instances:
+            instances[class_] = class_(*args, **kwargs)
+        return instances[class_]
+    return getinstance
+
+@_singleton
 class CLIPClient:
     """Client for interacting with CLIP server via Redis
 
@@ -67,7 +76,7 @@ class CLIPClient:
                 key=id,
                 value=dumps({"seq": seq, "text": text})
             ),
-            redis.lset(TEXT_FLAG, 0, "available")
+            redis.publish(TEXT_FLAG, "available")
         )
         await redis.aclose()
         logger.debug(f"Sent process_text request with seq={seq}")
@@ -80,12 +89,12 @@ class CLIPClient:
         return frombuffer(response['answer'], dtype=float32)
 
 
-    # Singleton
-    _instance = None
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    # # Singleton
+    # _instance = None
+    # def __new__(cls, *args, **kwargs):
+    #     if not cls._instance:
+    #         cls._instance = super().__new__(cls)
+    #     return cls._instance
     
 
     def __init__(self, redis_url: str) -> None:
