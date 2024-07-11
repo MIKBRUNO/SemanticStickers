@@ -59,12 +59,14 @@ def image_processor() -> None:
     model = CLIPVisionModelWithProjection.from_pretrained("openai/clip-vit-large-patch14")
     processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14")
     logger.info("Image processor ready!")
-    try:
-        while True:
+    while True:
+        try:
             r = Redis.from_url(REDIS)
             # load up to `BATCH_SIZE` requests
             _, bson_requests = r.blmpop(0, 1, IMAGE_QUEUE, direction="RIGHT", count=BATCH_SIZE)
             logger.info(f"Recieved {len(bson_requests)} image requests")
+            if len(bson_requests) <= 0:
+                continue
             requests = [loads(req) for req in bson_requests]
             # download images from urls
             downloaded = asyncio.run(_load_images(requests))
@@ -95,8 +97,8 @@ def image_processor() -> None:
             r.lpush(RESPONSE_QUEUE, *answers)
             logger.debug("Requests answered")
             logger.info(f"{len(answers)} images successfully embedded")
-    except:
-        logger.error(traceback.format_exc())
+        except:
+            logger.error(traceback.format_exc())
 
 
 def text_processor() -> None:
@@ -109,8 +111,8 @@ def text_processor() -> None:
     model = CLIPTextModelWithProjection.from_pretrained("openai/clip-vit-large-patch14")
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
     logger.info("Text processor ready!")
-    try:
-        while True:
+    while True:
+        try:
             r = Redis.from_url(REDIS)
             # load up to `BATCH_SIZE` requests
             # r.blpop(TEXT_FLAG)
@@ -124,6 +126,8 @@ def text_processor() -> None:
 
             bson_requests = r.hgetall(TEXT_QUEUE)
             logger.info(f"Recieved {len(bson_requests)} text requests")
+            if len(bson_requests) <= 0:
+                continue
             requests = [loads(req) for req in bson_requests.values()]
             texts = [req['text'] for req in requests]
             sequence_numbers = [req['seq'] for req in requests]
@@ -140,8 +144,8 @@ def text_processor() -> None:
             r.lpush(RESPONSE_QUEUE, *answers)
             logger.debug("Requests answered")
             logger.info(f"{len(answers)} texts successfully embedded")
-    except:
-        logger.error(traceback.format_exc())
+        except:
+            logger.error(traceback.format_exc())
 
 
 if __name__ == "__main__":

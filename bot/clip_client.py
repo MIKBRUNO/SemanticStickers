@@ -87,14 +87,6 @@ class CLIPClient:
         if response['code'] == 'ERROR':
             raise CLIPServerException(response['answer'])
         return frombuffer(response['answer'], dtype=float32)
-
-
-    # # Singleton
-    # _instance = None
-    # def __new__(cls, *args, **kwargs):
-    #     if not cls._instance:
-    #         cls._instance = super().__new__(cls)
-    #     return cls._instance
     
 
     def __init__(self, redis_url: str) -> None:
@@ -108,6 +100,9 @@ class CLIPClient:
                     _, banswer = await r.brpop(RESPONSE_QUEUE)
                     answer = loads(banswer)
                     logger.debug(f"Catch CLIP server response seq={answer['seq']}")
+                    if answer['seq'] not in self._requests.keys():
+                        logger.warn("Recieved answer with invalid seq (no request to answer)")
+                        continue
                     req: _Request = self._requests[answer['seq']]
                     req.response(answer)
             finally:
