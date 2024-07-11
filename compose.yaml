@@ -12,8 +12,9 @@ services:
       - redis
     environment:
       REDIS_URL: redis://redis
+      BATCH_SIZE: 2
     volumes:
-      - clipcache:/home/root/.cache
+      - clipcache:/root/.cache
   
   bot1:
     build: ./bot
