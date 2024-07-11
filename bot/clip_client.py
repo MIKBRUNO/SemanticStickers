@@ -9,6 +9,7 @@ from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 IMAGE_QUEUE = "request:images"
+TEXT_QUEUE = "request:texts"
 REQUEST_COUNTER = "request:count"
 RESPONSE_QUEUE = "response"
 
@@ -45,16 +46,33 @@ class CLIPClient:
         return frombuffer(response['answer'], dtype=float32)
 
 
-    async def process_text(self, text: str) -> ArrayLike:
+    async def process_text(self, id: str, text: str) -> ArrayLike:
         """Sends text processing request
         
         Attributes:
+            id (str): unique id of text request thread - see docs/redis-communication.md
             text (str): text to encode
         Returns: list of floats - embedding vector of a text
         Raises:
             CLIPServerException: raises when server returns error code
         """
-        pass
+        redis = Redis.from_url(self._redis_url)
+        seq = await redis.incr(REQUEST_COUNTER)
+        request = _Request(seq)
+        self._requests[seq] = request
+        await redis.lpush(
+            TEXT_QUEUE,
+            dumps({"seq": seq, "text": text, "id": id})
+        )
+        await redis.aclose()
+        logger.debug(f"Sent process_text request with seq={seq}")
+        await request.event.wait()
+        response = request.answer
+        logger.debug(f"Recieved reqponse for process_text seq={seq}, "
+                     f"answer={response}")
+        if response['code'] == 'ERROR':
+            raise CLIPServerException(response['answer'])
+        return frombuffer(response['answer'], dtype=float32)
 
 
     # Singleton
