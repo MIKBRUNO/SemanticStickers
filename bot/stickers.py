@@ -10,6 +10,8 @@ from aiogram.filters import MagicData
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue, PointStruct
 
+from clip_client import CLIPClient
+
 QDRANT = getenv('QDRANT_URL')
 QDRANT_API_KEY = getenv('QDRANT_API_KEY')
 CLIP = getenv('CLIP_URL')
@@ -57,14 +59,16 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
         file = await bot.get_file(message.sticker.file_id)
         if sticker.is_video or sticker.is_animated:
             file = await bot.get_file(message.sticker.thumbnail.file_id)
-        io = await bot.download(file)
-        vector = []
-        async with ClientSession() as session:
-            async with session.post(
-                CLIP + "/upload_image",
-                data={"image": io}
-            ) as response:
-                vector = (await response.json())['embed']
+        # io = await bot.download(file)
+        url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
+        vector = await CLIPClient().process_image(url)
+        # vector = []
+        # async with ClientSession() as session:
+        #     async with session.post(
+        #         CLIP + "/upload_image",
+        #         data={"image": io}
+        #     ) as response:
+        #         vector = (await response.json())['embed']
         logger.debug(f"Embedding: {vector}")
         
         # save to qdrant storage

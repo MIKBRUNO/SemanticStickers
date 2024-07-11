@@ -7,6 +7,9 @@ from aiohttp import ClientSession
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
+from clip_client import CLIPClient
+
+REDIS = getenv('REDIS_URL')
 QDRANT = getenv('QDRANT_URL')
 QDRANT_API_KEY = getenv('QDRANT_API_KEY')
 CLIP = getenv('CLIP_URL')
@@ -45,13 +48,16 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
             return
         
         # encode inline query
-        vector = []
-        async with ClientSession() as session:
-            async with session.post(
-                CLIP + "/process_text",
-                json={"text": inline_query.query}
-            ) as response:
-                vector = (await response.json())['embed']
+        vector = await CLIPClient(REDIS).process_text(
+            str(inline_query.from_user.id), inline_query.query
+        )
+        # vector = []
+        # async with ClientSession() as session:
+        #     async with session.post(
+        #         CLIP + "/process_text",
+        #         json={"text": inline_query.query}
+        #     ) as response:
+        #         vector = (await response.json())['embed']
         logger.debug(f"Embedding: {vector}")
 
         # search for nearest 50 stickers
