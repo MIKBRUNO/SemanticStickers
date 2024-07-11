@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM huggingface/transformers-pytorch-cpu
+FROM cnstark/pytorch:2.0.1-py3.10.11-ubuntu22.04
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 COPY . .

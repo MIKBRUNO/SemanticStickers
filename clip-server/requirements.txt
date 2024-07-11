@@ -2,3 +2,5 @@ transformers
 pillow
 redis
 bson
+aiohttp
+numpy
