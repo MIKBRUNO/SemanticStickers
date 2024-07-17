@@ -21,7 +21,8 @@ REQUEST_COUNTER = "request:count"
 RESPONSE_QUEUE = "response"
 ERROR = "ERROR"
 SUCCESS = "SUCCESS"
-BATCH_SIZE = getenv("BATCH_SIZE")
+IMG_BATCH_SIZE = getenv("IMG_BATCH_SIZE")
+TXT_BATCH_SIZE = getenv("TXT_BATCH_SIZE")
 
 
 async def _load_images(requests: list[dict]) -> list[dict | None]:
@@ -60,10 +61,10 @@ def image_processor() -> None:
     processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14")
     logger.info("Image processor ready!")
     while True:
+        r = Redis.from_url(REDIS)
         try:
-            r = Redis.from_url(REDIS)
-            # load up to `BATCH_SIZE` requests
-            _, bson_requests = r.blmpop(0, 1, IMAGE_QUEUE, direction="RIGHT", count=BATCH_SIZE)
+            # load up to `IMG_BATCH_SIZE` requests
+            _, bson_requests = r.blmpop(0, 1, IMAGE_QUEUE, direction="RIGHT", count=IMG_BATCH_SIZE)
             logger.info(f"Recieved {len(bson_requests)} image requests")
             if len(bson_requests) <= 0:
                 continue
@@ -75,7 +76,7 @@ def image_processor() -> None:
             for i in range(len(downloaded)):
                 # answer errorneous requests
                 if not downloaded[i]['img']:
-                    r.lpush(RESPONSE_QUEUE, dumps({
+                    r.publish(RESPONSE_QUEUE, dumps({
                         "seq": downloaded[i]['seq'], "code": ERROR,
                         "answer": "Could not download image by url. Check if url is correct"
                     }))
@@ -94,11 +95,14 @@ def image_processor() -> None:
                 dumps({"seq": seq, "code": SUCCESS, "answer": embed.tobytes()})
                 for seq, embed in zip(sequence_numbers, embeddings)
             ]
-            r.lpush(RESPONSE_QUEUE, *answers)
+            for ans in answers:
+                r.publish(RESPONSE_QUEUE, ans)
             logger.debug("Requests answered")
             logger.info(f"{len(answers)} images successfully embedded")
         except:
             logger.error(traceback.format_exc())
+        finally:
+            r.close()
 
 
 def text_processor() -> None:
@@ -112,40 +116,44 @@ def text_processor() -> None:
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
     logger.info("Text processor ready!")
     while True:
+        r = Redis.from_url(REDIS)
         try:
-            r = Redis.from_url(REDIS)
-            # load up to `BATCH_SIZE` requests
-            # r.blpop(TEXT_FLAG)
-
-            # uhhh... fuck you Redis!
-            p = r.pubsub(ignore_subscribe_messages=True)
-            p.subscribe(TEXT_FLAG)
-            p.listen().__next__()
-            p.unsubscribe()
-            p.close()
-
             bson_requests = r.hgetall(TEXT_QUEUE)
-            logger.info(f"Recieved {len(bson_requests)} text requests")
+            if len(bson_requests) <= 0:
+                # uhhh... fuck you Redis!
+                p = r.pubsub(ignore_subscribe_messages=True)
+                p.subscribe(TEXT_FLAG)
+                p.listen().__next__()
+                p.unsubscribe()
+                p.close()
+            bson_requests = r.hgetall(TEXT_QUEUE)
             if len(bson_requests) <= 0:
                 continue
+            logger.info(f"Recieved {len(bson_requests)} text requests")
+            
             requests = [loads(req) for req in bson_requests.values()]
-            texts = [req['text'] for req in requests]
-            sequence_numbers = [req['seq'] for req in requests]
-            logger.info(f"Processing {len(texts)} texts")
-            inputs = tokenizer(texts, padding=True, return_tensors='pt')
-            logger.debug("Texts prepocessed")
-            # some wierd torch magic idk
-            embeddings = model(**inputs).text_embeds.cpu().detach().numpy().astype(np.float32)
-            logger.debug("Texts embedded")
-            answers = [
-                dumps({"seq": seq, "code": SUCCESS, "answer": embed.tobytes()})
-                for seq, embed in zip(sequence_numbers, embeddings)
-            ]
-            r.lpush(RESPONSE_QUEUE, *answers)
-            logger.debug("Requests answered")
-            logger.info(f"{len(answers)} texts successfully embedded")
+            for i in range(TXT_BATCH_SIZE):
+                requests_slice = requests[i*TXT_BATCH_SIZE:(i+1)*TXT_BATCH_SIZE]
+                texts = [req['text'] for req in requests_slice]
+                sequence_numbers = [req['seq'] for req in requests_slice]
+                logger.info(f"Processing {len(texts)} texts")
+                inputs = tokenizer(texts, padding=True, return_tensors='pt')
+                logger.debug("Texts prepocessed")
+                # some wierd torch magic idk
+                embeddings = model(**inputs).text_embeds.cpu().detach().numpy().astype(np.float32)
+                logger.debug("Texts embedded")
+                answers = [
+                    dumps({"seq": seq, "code": SUCCESS, "answer": embed.tobytes()})
+                    for seq, embed in zip(sequence_numbers, embeddings)
+                ]
+                for ans in answers:
+                    r.publish(RESPONSE_QUEUE, ans)
+                logger.debug("Requests answered")
+                logger.info(f"{len(answers)} texts successfully embedded")
         except:
             logger.error(traceback.format_exc())
+        finally:
+            r.close()
 
 
 if __name__ == "__main__":

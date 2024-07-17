@@ -12,7 +12,8 @@ services:
       - redis
     environment:
       REDIS_URL: redis://redis
-      BATCH_SIZE: 2
+      IMG_BATCH_SIZE: 2
+      TXT_BATCH_SIZE: 10
     volumes:
       - clipcache:/root/.cache
   
