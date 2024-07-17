@@ -132,7 +132,7 @@ def text_processor() -> None:
             logger.info(f"Recieved {len(bson_requests)} text requests")
             
             requests = [loads(req) for req in bson_requests.values()]
-            for i in range(int(TXT_BATCH_SIZE)):
+            for i in range(TXT_BATCH_SIZE):
                 requests_slice = requests[i*TXT_BATCH_SIZE:(i+1)*TXT_BATCH_SIZE]
                 texts = [req['text'] for req in requests_slice]
                 sequence_numbers = [req['seq'] for req in requests_slice]
