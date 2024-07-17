@@ -5,6 +5,7 @@ from asyncio import Event, create_task, Task, gather
 from numpy import frombuffer, float32
 from numpy.typing import ArrayLike
 from redis.asyncio import Redis
+import traceback
 
 
 logger = logging.getLogger(__name__)
@@ -95,17 +96,25 @@ class CLIPClient:
         # Here we create new task that listens for incoming responses on redis
         async def listener():
             r = Redis.from_url(self._redis_url)
+            p = r.pubsub(ignore_subscribe_messages=True)
             try:
+                await p.subscribe(RESPONSE_QUEUE)
                 while True:
-                    _, banswer = await r.brpop(RESPONSE_QUEUE)
+                    gen = p.listen()
+                    resp = await gen.__anext__()
+                    banswer = resp['data']
                     answer = loads(banswer)
                     logger.debug(f"Catch CLIP server response seq={answer['seq']}")
                     if answer['seq'] not in self._requests.keys():
-                        logger.warn("Recieved answer with invalid seq (no request to answer)")
+                        logger.debug("Recieved answer with invalid seq (no request to answer)")
                         continue
                     req: _Request = self._requests[answer['seq']]
                     req.response(answer)
+            except:
+                logger.error(traceback.format_exc())
             finally:
+                await p.unsubscribe()
+                await p.close()
                 await r.aclose()
                 logger.info("CLIP server reponse listening stopped properly")
         self._listener_task: Task = create_task(listener())

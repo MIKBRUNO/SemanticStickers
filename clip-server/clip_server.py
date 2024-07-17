@@ -75,7 +75,7 @@ def image_processor() -> None:
             for i in range(len(downloaded)):
                 # answer errorneous requests
                 if not downloaded[i]['img']:
-                    r.lpush(RESPONSE_QUEUE, dumps({
+                    r.publish(RESPONSE_QUEUE, dumps({
                         "seq": downloaded[i]['seq'], "code": ERROR,
                         "answer": "Could not download image by url. Check if url is correct"
                     }))
@@ -94,7 +94,8 @@ def image_processor() -> None:
                 dumps({"seq": seq, "code": SUCCESS, "answer": embed.tobytes()})
                 for seq, embed in zip(sequence_numbers, embeddings)
             ]
-            r.lpush(RESPONSE_QUEUE, *answers)
+            for ans in answers:
+                r.publish(RESPONSE_QUEUE, ans)
             logger.debug("Requests answered")
             logger.info(f"{len(answers)} images successfully embedded")
         except:
@@ -141,7 +142,8 @@ def text_processor() -> None:
                 dumps({"seq": seq, "code": SUCCESS, "answer": embed.tobytes()})
                 for seq, embed in zip(sequence_numbers, embeddings)
             ]
-            r.lpush(RESPONSE_QUEUE, *answers)
+            for ans in answers:
+                r.publish(RESPONSE_QUEUE, ans)
             logger.debug("Requests answered")
             logger.info(f"{len(answers)} texts successfully embedded")
         except:

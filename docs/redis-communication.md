@@ -33,7 +33,7 @@ where `seq` is sequence number gotten by incrementing `request:count`. `text` is
 It is assumed that there are several different threads of text requests and for each thread it is necessary to process only the last request.
 
 ## Responses
-All responses are placed at `response` Redis list and are BSON dumps with schema
+All responses are sent at `response` Redis pub/sub channel and are BSON dumps with schema
 ```
 {
     "seq": <sequence number>,
@@ -42,3 +42,4 @@ All responses are placed at `response` Redis list and are BSON dumps with schema
 }
 ```
 If `code` is SUCCESS then `answer` is tobytes() encoded numpy array. If `code` is ERROR then `answer` is string, describing the error.
+Now numpy array is of float32's because we are running on CPU.
