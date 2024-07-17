@@ -101,6 +101,7 @@ def image_processor() -> None:
             logger.info(f"{len(answers)} images successfully embedded")
         except:
             logger.error(traceback.format_exc())
+            break
         finally:
             r.close()
 
@@ -118,7 +119,12 @@ def text_processor() -> None:
     while True:
         r = Redis.from_url(REDIS)
         try:
-            bson_requests = r.hgetall(TEXT_QUEUE)
+            pipe = r.pipeline(transaction=True)
+            pipe.hgetall(TEXT_QUEUE)
+            pipe.delete(TEXT_QUEUE)
+            result = pipe.execute()
+            pipe.close()
+            bson_requests = result[0]
             if len(bson_requests) <= 0:
                 # uhhh... fuck you Redis!
                 p = r.pubsub(ignore_subscribe_messages=True)
@@ -126,14 +132,23 @@ def text_processor() -> None:
                 p.listen().__next__()
                 p.unsubscribe()
                 p.close()
-            bson_requests = r.hgetall(TEXT_QUEUE)
+            pipe = r.pipeline(transaction=True)
+            pipe.hgetall(TEXT_QUEUE)
+            pipe.delete(TEXT_QUEUE)
+            result = pipe.execute()
+            pipe.close()
+            bson_requests = result[0]
             if len(bson_requests) <= 0:
                 continue
             logger.info(f"Recieved {len(bson_requests)} text requests")
+            logger.debug(f'{bson_requests}')
             
             requests = [loads(req) for req in bson_requests.values()]
-            for i in range(TXT_BATCH_SIZE):
-                requests_slice = requests[i*TXT_BATCH_SIZE:(i+1)*TXT_BATCH_SIZE]
+            i = 0
+            while i < len(requests):
+                j = max(i + TXT_BATCH_SIZE, len(requests))
+                requests_slice = requests[i:j]
+                i = j
                 texts = [req['text'] for req in requests_slice]
                 sequence_numbers = [req['seq'] for req in requests_slice]
                 logger.info(f"Processing {len(texts)} texts")
@@ -152,6 +167,7 @@ def text_processor() -> None:
                 logger.info(f"{len(answers)} texts successfully embedded")
         except:
             logger.error(traceback.format_exc())
+            break
         finally:
             r.close()
 
