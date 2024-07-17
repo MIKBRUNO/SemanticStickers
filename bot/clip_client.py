@@ -71,14 +71,12 @@ class CLIPClient:
         seq = await redis.incr(REQUEST_COUNTER)
         request = _Request(seq)
         self._requests[seq] = request
-        await gather(
-            redis.hset(
-                TEXT_QUEUE,
-                key=id,
-                value=dumps({"seq": seq, "text": text})
-            ),
-            redis.publish(TEXT_FLAG, "available")
+        await redis.hset(
+            TEXT_QUEUE,
+            key=id,
+            value=dumps({"seq": seq, "text": text})
         )
+        await redis.publish(TEXT_FLAG, "available")
         await redis.aclose()
         logger.debug(f"Sent process_text request with seq={seq}")
         await request.event.wait()
