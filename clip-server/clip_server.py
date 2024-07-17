@@ -21,8 +21,8 @@ REQUEST_COUNTER = "request:count"
 RESPONSE_QUEUE = "response"
 ERROR = "ERROR"
 SUCCESS = "SUCCESS"
-IMG_BATCH_SIZE = getenv("IMG_BATCH_SIZE")
-TXT_BATCH_SIZE = getenv("TXT_BATCH_SIZE")
+IMG_BATCH_SIZE = int(getenv("IMG_BATCH_SIZE"))
+TXT_BATCH_SIZE = int(getenv("TXT_BATCH_SIZE"))
 
 
 async def _load_images(requests: list[dict]) -> list[dict | None]:
