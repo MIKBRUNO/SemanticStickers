@@ -21,8 +21,8 @@ REQUEST_COUNTER = "request:count"
 RESPONSE_QUEUE = "response"
 ERROR = "ERROR"
 SUCCESS = "SUCCESS"
-IMG_BATCH_SIZE = getenv("IMG_BATCH_SIZE")
-TXT_BATCH_SIZE = getenv("TXT_BATCH_SIZE")
+IMG_BATCH_SIZE = int(getenv("IMG_BATCH_SIZE"))
+TXT_BATCH_SIZE = int(getenv("TXT_BATCH_SIZE"))
 
 
 async def _load_images(requests: list[dict]) -> list[dict | None]:
@@ -132,7 +132,7 @@ def text_processor() -> None:
             logger.info(f"Recieved {len(bson_requests)} text requests")
             
             requests = [loads(req) for req in bson_requests.values()]
-            for i in range(TXT_BATCH_SIZE):
+            for i in range(int(TXT_BATCH_SIZE)):
                 requests_slice = requests[i*TXT_BATCH_SIZE:(i+1)*TXT_BATCH_SIZE]
                 texts = [req['text'] for req in requests_slice]
                 sequence_numbers = [req['seq'] for req in requests_slice]
