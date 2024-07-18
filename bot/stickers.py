@@ -31,6 +31,11 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
     sticker = message.sticker
     logger.info(f"New sticker request from user {message.from_user.username}"
                 f", unique_id: {sticker.file_unique_id}, id: {sticker.file_id}")
+    if sticker.set_name is None:
+        logger.info(f"Sticker is orphan, so poor(...")
+        await message.reply('This sticker is not in any sticker set. '
+                            'Now we do not support such stickers')
+        return
     
     qdrant = AsyncQdrantClient(url=QDRANT, api_key=QDRANT_API_KEY)
     try:
@@ -51,8 +56,9 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
             sticker_record = retrived[0]
             # answer if user sent a duplicate
             if message.from_user.id in sticker_record.payload['users']:
-                await message.answer('Duplicate')
+                await message.reply('Duplicate')
                 logger.info(f"Got a duplicate")
+                await qdrant.close()
                 return
             await qdrant.set_payload(
                 collection_name=COLLECTION,
@@ -62,7 +68,8 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
             logger.info("Added new user to sticker record "
                     f"unique_id: {sticker.file_unique_id}, id: {sticker.file_id}"
                     f"from user {message.from_user.username}")
-            await message.answer('Uploaded!')
+            await message.reply('Uploaded!')
+            await qdrant.close()
             return
         
         # download and embed
@@ -96,9 +103,9 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
         logger.info("Uploaded new sticker "
                     f"unique_id: {sticker.file_unique_id}, id: {sticker.file_id}"
                     f"from user {message.from_user.username}")
-        await message.answer('Uploaded!')
+        await message.reply('Uploaded!')
     except:
         logger.error(traceback.format_exc())
-        await message.answer('Could not upload your sticker( Try next time!')
+        await message.reply('Could not upload your sticker( Try next time!')
     finally:
         await qdrant.close()

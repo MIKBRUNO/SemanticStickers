@@ -27,7 +27,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT1_TOKEN}
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
-      QDRANT_COLLECTION: "SemanticStickers"
+      QDRANT_COLLECTION: "newSemanticStickers"
       REDIS_URL: redis://redis
   
   bot2:
@@ -40,7 +40,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT2_TOKEN}
       QDRANT_URL: ${QDRANT_URL}
       QDRANT_API_KEY: ${QDRANT_API_KEY}
-      QDRANT_COLLECTION: "SemanticStickers"
+      QDRANT_COLLECTION: "newSemanticStickers"
       REDIS_URL: redis://redis
 
 volumes:
