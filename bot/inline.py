@@ -26,27 +26,8 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
     CLIP server and searches for nearest saved stickers
     """
     logger.info(f"Inline query from {inline_query.from_user.username}: {inline_query.query}")
-    try:
-        # check if user does not have any uploaded stickers
-        qdrant = AsyncQdrantClient(url=QDRANT, api_key=QDRANT_API_KEY)
-        uploaded = await qdrant.count(
-            collection_name=COLLECTION,
-            count_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key='chat_id',
-                        match=MatchValue(value=inline_query.from_user.id)
-                    )
-                ]
-            )
-        )
-        if uploaded.count <= 0:
-            await inline_query.answer([], cache_time=0, is_personal=True,
-                              switch_pm_text="Send some stickers!",
-                              switch_pm_parameter="a")
-            logger.info(f"No uploaded stickers for user {inline_query.from_user.username}")
-            return
-        
+    qdrant = AsyncQdrantClient(url=QDRANT, api_key=QDRANT_API_KEY)
+    try:        
         # encode inline query
         vector = await CLIPClient(REDIS).process_text(
             str(inline_query.from_user.id), inline_query.query,
@@ -61,7 +42,7 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
             query_filter=Filter(
                 must=[
                     FieldCondition(
-                        key='chat_id',
+                        key='users',
                         match=MatchValue(value=inline_query.from_user.id)
                     )
                 ]
@@ -71,6 +52,12 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
             with_vectors=False
         )
         logger.debug(f"Found {len(found)} stickers")
+        if len(found) <= 0:
+            await inline_query.answer([], cache_time=0, is_personal=True,
+                              switch_pm_text="Send some stickers!",
+                              switch_pm_parameter="a")
+            logger.info(f"No uploaded stickers for user {inline_query.from_user.username}")
+            return
         result = [
             types.InlineQueryResultCachedSticker(
                 id=str(i),
