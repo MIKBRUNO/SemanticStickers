@@ -1,10 +1,10 @@
 from os import getenv
 import logging
 from bson import loads, dumps
-from asyncio import Event, create_task, Task, gather
+from asyncio import Event, create_task, Task, wait_for
 from numpy import frombuffer, float32
 from numpy.typing import ArrayLike
-from redis.asyncio import Redis
+from redis.asyncio import Redis, WatchError
 import traceback
 
 
@@ -57,15 +57,18 @@ class CLIPClient:
         return frombuffer(response['answer'], dtype=float32)
 
 
-    async def process_text(self, id: str, text: str) -> ArrayLike:
+    async def process_text(self, id: str, text: str, timeout: float | None = None) -> ArrayLike:
         """Sends text processing request
         
         Attributes:
             id (str): unique id of text request thread - see docs/redis-communication.md
             text (str): text to encode
+            timeout (float | None): timeout to wait after sending request
         Returns: list of floats - embedding vector of a text
         Raises:
             CLIPServerException: raises when server returns error code
+            TimeoutError: raises when timeout is set and text didn't process
+            within this timeout
         """
         redis = Redis.from_url(self._redis_url)
         seq = await redis.incr(REQUEST_COUNTER)
@@ -79,7 +82,22 @@ class CLIPClient:
         await redis.publish(TEXT_FLAG, "available")
         await redis.aclose()
         logger.debug(f"Sent process_text request with seq={seq}")
-        await request.event.wait()
+        try:
+            await wait_for(request.event.wait(), timeout)
+        except TimeoutError:
+            with redis.pipeline(transaction=True) as pipe:
+                while True:
+                    try:
+                        await pipe.watch(TEXT_QUEUE)
+                        query = await pipe.hget(TEXT_QUEUE, id)
+                        pipe.multi()
+                        if query is not None and loads(query)['seq'] == seq:
+                            await pipe.hdel(TEXT_QUEUE, id)
+                        await pipe.execute()
+                        break
+                    except WatchError:
+                        continue
+            raise TimeoutError()
         response = request.answer
         logger.debug(f"Recieved reqponse for process_text seq={seq}, "
                      f"answer={response}")
@@ -106,7 +124,7 @@ class CLIPClient:
                     if answer['seq'] not in self._requests.keys():
                         logger.debug("Recieved answer with invalid seq (no request to answer)")
                         continue
-                    req: _Request = self._requests[answer['seq']]
+                    req: _Request = self._requests.pop(answer['seq'])
                     req.response(answer)
             except:
                 logger.error(traceback.format_exc())

@@ -49,15 +49,9 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
         
         # encode inline query
         vector = await CLIPClient(REDIS).process_text(
-            str(inline_query.from_user.id), inline_query.query
+            str(inline_query.from_user.id), inline_query.query,
+            timeout=60
         )
-        # vector = []
-        # async with ClientSession() as session:
-        #     async with session.post(
-        #         CLIP + "/process_text",
-        #         json={"text": inline_query.query}
-        #     ) as response:
-        #         vector = (await response.json())['embed']
         logger.debug(f"Embedding: {vector}")
 
         # search for nearest 50 stickers
@@ -84,6 +78,11 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
             for i in range(len(found))]
         logger.info("Successfully found stickers")
         await inline_query.answer(result, cache_time=0, is_personal=True, switch_pm_text=None, switch_pm_parameter=None)
+    except TimeoutError as e:
+        await inline_query.answer([], cache_time=0, is_personal=True,
+                              switch_pm_text="Oops...",
+                              switch_pm_parameter="o")
+        logger.warn("Text request timeout")
     except Exception as e:
         await inline_query.answer([], cache_time=0, is_personal=True,
                               switch_pm_text="Oops...",
