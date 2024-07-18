@@ -119,24 +119,21 @@ def text_processor() -> None:
     while True:
         r = Redis.from_url(REDIS)
         try:
-            pipe = r.pipeline(transaction=True)
-            pipe.hgetall(TEXT_QUEUE)
-            pipe.delete(TEXT_QUEUE)
-            result = pipe.execute()
-            pipe.close()
+            with r.pipeline(transaction=True) as pipe:
+                pipe.hgetall(TEXT_QUEUE)
+                pipe.delete(TEXT_QUEUE)
+                result = pipe.execute()
             bson_requests = result[0]
             if len(bson_requests) <= 0:
                 # uhhh... fuck you Redis!
-                p = r.pubsub(ignore_subscribe_messages=True)
-                p.subscribe(TEXT_FLAG)
-                p.listen().__next__()
-                p.unsubscribe()
-                p.close()
-            pipe = r.pipeline(transaction=True)
-            pipe.hgetall(TEXT_QUEUE)
-            pipe.delete(TEXT_QUEUE)
-            result = pipe.execute()
-            pipe.close()
+                with r.pubsub(ignore_subscribe_messages=True) as p:
+                    p.subscribe(TEXT_FLAG)
+                    p.listen().__next__()
+                    p.unsubscribe()
+            with r.pipeline(transaction=True) as pipe:
+                pipe.hgetall(TEXT_QUEUE)
+                pipe.delete(TEXT_QUEUE)
+                result = pipe.execute()
             bson_requests = result[0]
             if len(bson_requests) <= 0:
                 continue
