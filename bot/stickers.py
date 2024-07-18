@@ -32,44 +32,45 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
     logger.info(f"New sticker request from user {message.from_user.username}"
                 f", unique_id: {sticker.file_unique_id}, id: {sticker.file_id}")
     
+    qdrant = AsyncQdrantClient(url=QDRANT, api_key=QDRANT_API_KEY)
     try:
         # check if this sticker is already in storage
-        qdrant = AsyncQdrantClient(url=QDRANT, api_key=QDRANT_API_KEY)
-        duplicates = await qdrant.count(
+        retrived = await qdrant.scroll(
             collection_name=COLLECTION,
-            count_filter=Filter(
+            scroll_filter=Filter(
                 must=[
-                    FieldCondition(
-                        key='chat_id',
-                        match=MatchValue(value=message.chat.id)
-                    ),
-                    FieldCondition(
-                        key='unique_id',
-                        match=MatchValue(value=sticker.file_unique_id)
-                    )
+                    FieldCondition(key="unique_id", match=MatchValue(value=sticker.file_unique_id)),
                 ]
-            )
+            ),
+            limit=1,
+            with_payload=True,
+            with_vectors=False,
         )
-        if duplicates.count >= 1:
-            await message.answer('Duplicate')
-            logger.info(f"Got a duplicate")
-            logger.debug(f"Duplicates: {duplicates.count}")
+        retrived = retrived[0]
+        if len(retrived) > 0:
+            sticker_record = retrived[0]
+            # answer if user sent a duplicate
+            if message.from_user.id in sticker_record.payload['users']:
+                await message.answer('Duplicate')
+                logger.info(f"Got a duplicate")
+                return
+            await qdrant.set_payload(
+                collection_name=COLLECTION,
+                payload={"users": sticker_record.payload['users'] + [message.from_user.id]},
+                points=[sticker_record.id]
+            )
+            logger.info("Added new user to sticker record "
+                    f"unique_id: {sticker.file_unique_id}, id: {sticker.file_id}"
+                    f"from user {message.from_user.username}")
+            await message.answer('Uploaded!')
             return
         
         # download and embed
         file = await bot.get_file(message.sticker.file_id)
         if sticker.is_video or sticker.is_animated:
             file = await bot.get_file(message.sticker.thumbnail.file_id)
-        # io = await bot.download(file)
         url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
         vector = await CLIPClient(REDIS).process_image(url)
-        # vector = []
-        # async with ClientSession() as session:
-        #     async with session.post(
-        #         CLIP + "/upload_image",
-        #         data={"image": io}
-        #     ) as response:
-        #         vector = (await response.json())['embed']
         logger.debug(f"Embedding: {vector}")
         
         # save to qdrant storage
@@ -81,9 +82,14 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
                     id=str(uuid.uuid1()),
                     vector=vector,
                     payload={
+                        'users': [message.from_user.id],
+                        "unique_id": sticker.file_unique_id,
                         "file_id": sticker.file_id,
-                        'chat_id': message.chat.id,
-                        'unique_id': sticker.file_unique_id
+                        "type": sticker.type,
+                        "is_video": sticker.is_video,
+                        "is_animated": sticker.is_animated,
+                        "set_name": sticker.set_name,
+                        "emoji": sticker.emoji
                     })
             ]
         )
