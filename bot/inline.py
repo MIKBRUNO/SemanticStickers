@@ -1,7 +1,8 @@
 from os import getenv
 import logging
 import traceback
-
+from translate import Translator
+# from translate.providers import MyMemoryProvider
 from aiogram import Router, types
 from aiohttp import ClientSession
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
@@ -17,6 +18,7 @@ COLLECTION = getenv('QDRANT_COLLECTION')
 
 logger = logging.getLogger(__name__)
 inline_router = Router(name="inline")
+translator = Translator(to_lang='en', from_lang='autodetect', provider='mymemory')
 
 @inline_router.inline_query()
 async def inline_query_handler(inline_query: types.InlineQuery) -> None:
@@ -25,12 +27,16 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
     This handlers accepts all the inline queries by users, encodes it via
     CLIP server and searches for nearest saved stickers
     """
-    logger.info(f"Inline query from {inline_query.from_user.username}: {inline_query.query}")
+    src_query = inline_query.query
+    logger.info(f"Inline query from {inline_query.from_user.username}: {src_query}")
     qdrant = AsyncQdrantClient(url=QDRANT, api_key=QDRANT_API_KEY)
-    try:        
+    try:
+        
+        query = translator.translate(src_query)
+        logger.info(f"Translated query: {query}")
         # encode inline query
         vector = await CLIPClient(REDIS).process_text(
-            str(inline_query.from_user.id), inline_query.query,
+            str(inline_query.from_user.id), query,
             timeout=60
         )
         logger.debug(f"Embedding: {vector}")
@@ -64,7 +70,8 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
                 sticker_file_id=found[i].payload['file_id'])
             for i in range(len(found))]
         logger.info("Successfully found stickers")
-        await inline_query.answer(result, cache_time=0, is_personal=True, switch_pm_text=None, switch_pm_parameter=None)
+        await inline_query.answer(result, cache_time=0, is_personal=True,
+                                  switch_pm_text=None, switch_pm_parameter=None)
     except TimeoutError as e:
         await inline_query.answer([], cache_time=0, is_personal=True,
                               switch_pm_text="Oops...",
