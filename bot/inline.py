@@ -2,7 +2,6 @@ from os import getenv
 import logging
 import traceback
 from translate import Translator
-# from translate.providers import MyMemoryProvider
 from aiogram import Router, types
 from aiohttp import ClientSession
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
@@ -18,7 +17,7 @@ COLLECTION = getenv('QDRANT_COLLECTION')
 
 logger = logging.getLogger(__name__)
 inline_router = Router(name="inline")
-translator = Translator(to_lang='en', from_lang='autodetect', provider='mymemory')
+translator = Translator(to_lang='en', from_lang='autodetect', provider='libre')
 
 @inline_router.inline_query()
 async def inline_query_handler(inline_query: types.InlineQuery) -> None:
