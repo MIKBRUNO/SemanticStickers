@@ -3,23 +3,21 @@ import logging
 import traceback
 import uuid
 
-from aiohttp import ClientSession
 from aiogram import Router, types, F, Bot
 from aiogram.filters import MagicData
 
-from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue, PointStruct
-
-from clip_client import CLIPClient
-
-QDRANT = getenv('QDRANT_URL')
-QDRANT_API_KEY = getenv('QDRANT_API_KEY')
-CLIP = getenv('CLIP_URL')
-COLLECTION = getenv('QDRANT_COLLECTION')
-REDIS = getenv('REDIS_URL')
+from storage_controller import StorageController
 
 logger = logging.getLogger(__name__)
 stickers_router = Router(name="stickers")
+
+
+async def get_sticker_file_url(bot, sticker) -> str:
+    file = await bot.get_file(sticker.file_id)
+    if sticker.is_video or sticker.is_animated:
+        file = await bot.get_file(sticker.thumbnail.file_id)
+    return f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
+
 
 @stickers_router.message(MagicData(F.event.sticker != None))
 async def sticker_handler(message: types.Message, bot: Bot) -> None:
@@ -36,76 +34,40 @@ async def sticker_handler(message: types.Message, bot: Bot) -> None:
         await message.reply('This sticker is not in any sticker set. '
                             'Now we do not support such stickers')
         return
-    
-    qdrant = AsyncQdrantClient(url=QDRANT, api_key=QDRANT_API_KEY)
+
     try:
-        # check if this sticker is already in storage
-        retrived = await qdrant.scroll(
-            collection_name=COLLECTION,
-            scroll_filter=Filter(
-                must=[
-                    FieldCondition(key="unique_id", match=MatchValue(value=sticker.file_unique_id)),
-                ]
-            ),
-            limit=1,
-            with_payload=True,
-            with_vectors=False,
+        res = await StorageController.upload(
+            message.from_user.id,
+            sticker.file_unique_id,
+            sticker.file_id,
+            sticker.type,
+            sticker.is_video,
+            sticker.is_animated,
+            sticker.set_name,
+            sticker.emoji,
+            get_sticker_file_url(bot, sticker)
         )
-        retrived = retrived[0]
-        if len(retrived) > 0:
-            sticker_record = retrived[0]
-            # answer if user sent a duplicate
-            if message.from_user.id in sticker_record.payload['users']:
-                await message.reply('Duplicate')
-                logger.info(f"Got a duplicate")
-                await qdrant.close()
-                return
-            await qdrant.set_payload(
-                collection_name=COLLECTION,
-                payload={"users": sticker_record.payload['users'] + [message.from_user.id]},
-                points=[sticker_record.id]
-            )
+
+        if res == StorageController.UploadStatus.DUPLICATE:
+            await message.reply('Duplicate')
+            logger.info(f"Got a duplicate")
+            return
+        elif res == StorageController.UploadStatus.UPDATED:
             logger.info("Added new user to sticker record "
                     f"unique_id: {sticker.file_unique_id}, id: {sticker.file_id}"
                     f"from user {message.from_user.username}")
             await message.reply('Uploaded!')
-            await qdrant.close()
             return
-        
-        # download and embed
-        file = await bot.get_file(message.sticker.file_id)
-        if sticker.is_video or sticker.is_animated:
-            file = await bot.get_file(message.sticker.thumbnail.file_id)
-        url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
-        vector = await CLIPClient(REDIS).process_image(url)
-        logger.debug(f"Embedding: {vector}")
-        
-        # save to qdrant storage
-        await qdrant.upload_points(
-            collection_name=COLLECTION,
-            wait=True,
-            points=[
-                PointStruct(
-                    id=str(uuid.uuid1()),
-                    vector=vector,
-                    payload={
-                        'users': [message.from_user.id],
-                        "unique_id": sticker.file_unique_id,
-                        "file_id": sticker.file_id,
-                        "type": sticker.type,
-                        "is_video": sticker.is_video,
-                        "is_animated": sticker.is_animated,
-                        "set_name": sticker.set_name,
-                        "emoji": sticker.emoji
-                    })
-            ]
-        )
-        logger.info("Uploaded new sticker "
-                    f"unique_id: {sticker.file_unique_id}, id: {sticker.file_id}"
-                    f"from user {message.from_user.username}")
-        await message.reply('Uploaded!')
+        elif res == StorageController.UploadStatus.UPLOADED:
+            logger.info("Uploaded new sticker "
+                        f"unique_id: {sticker.file_unique_id}, id: {sticker.file_id}"
+                        f"from user {message.from_user.username}")
+            await message.reply('Uploaded!')
+            return
+        elif res == StorageController.UploadStatus.FAILURE:
+            await message.reply('Could not upload your sticker( Try next time!')
+            return
+    
     except:
         logger.error(traceback.format_exc())
         await message.reply('Could not upload your sticker( Try next time!')
-    finally:
-        await qdrant.close()
