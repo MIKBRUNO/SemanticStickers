@@ -2,7 +2,6 @@ import logging
 import traceback
 from aiogram import Router, types
 
-from clip_client import CLIPClient
 from storage_controller import StorageController
 
 logger = logging.getLogger(__name__)
@@ -17,7 +16,7 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
     """
     logger.info(f"Inline query from {inline_query.from_user.username}: {inline_query.query}")
     try:        
-        found = StorageController.search(inline_query.from_user.id, inline_query.query)
+        found = await StorageController.search(inline_query.from_user.id, inline_query.query)
         if len(found) <= 0:
             await inline_query.answer([], cache_time=0, is_personal=True,
                               switch_pm_text="Send some stickers!",
@@ -27,7 +26,7 @@ async def inline_query_handler(inline_query: types.InlineQuery) -> None:
         result = [
             types.InlineQueryResultCachedSticker(
                 id=str(i),
-                sticker_file_id=found)
+                sticker_file_id=found[i])
             for i in range(len(found))]
         logger.info("Successfully found stickers")
         await inline_query.answer(

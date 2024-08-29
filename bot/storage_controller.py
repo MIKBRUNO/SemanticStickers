@@ -1,9 +1,11 @@
 from os import getenv
 import logging
-import traceback
+from enum import Enum
+from typing import Awaitable
+import uuid
 
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue
+from qdrant_client.models import Filter, FieldCondition, MatchValue, PointStruct
 
 from clip_client import CLIPClient
 
@@ -22,7 +24,9 @@ class StorageController:
     (yes like deletion)
     """
 
-    async def search(user_id: str, text: str, limit: int=50, timeout: float | None=60) -> list[str]:
+    async def search(
+            user_id: str, text: str,
+            limit: int=50, timeout: float | None=60) -> list[str]:
         """Searches for stickers by text
         Attributes:
             user_id (str): user id of search request. If request was not started to proceed,
@@ -64,6 +68,97 @@ class StorageController:
             )
             logger.debug(f"Found {len(found)} stickers")
             return [record.payload['file_id'] for record in found]
+        except Exception as e:
+            await qdrant.close()
+            raise e
+
+
+    class UploadStatus(Enum):
+        DUPLICATE=0
+        UPLOADED=1
+        UPDATED=2
+        FAILURE=3
+
+
+    async def upload(
+            user_id: str, unique_id: str, file_id: str, type: str,
+            is_video: bool, is_animated: bool, set_name: str,
+            emoji: str, sticker_file_coro: Awaitable) -> UploadStatus:
+        """Upload sticker
+        Attributes:
+            user_id (str): user id of sticker sender. Used to check duplicates
+            unique_id (str): sticker file unique id
+            file_id (str): sticker file id
+            type (str): sticker type
+            is_video (bool): sticker is_video
+            is_animated (bool): sticker is_animated
+            set_name (str): sticker set_name
+            emoji (str): sticker emoji
+            sticker_file_coro (Awaitable): coroutine to get sticker file url.
+            Can be not called
+        Returns: upload status: duplicate, success or failure
+        Raises:
+            CLIPServerException: see CLIPClient.process_text
+        """
+        qdrant = AsyncQdrantClient(url=QDRANT, api_key=QDRANT_API_KEY)
+        try:
+            # check if this sticker is already in storage
+            retrived = await qdrant.scroll(
+                collection_name=COLLECTION,
+                scroll_filter=Filter(
+                    must=[
+                        FieldCondition(key="unique_id", match=MatchValue(value=unique_id)),
+                    ]
+                ),
+                limit=1,
+                with_payload=True,
+                with_vectors=False,
+            )
+            # get rid of qdrant redudant info
+            retrived = retrived[0]
+            if len(retrived) > 0:
+                sticker_record = retrived[0]
+                # answer if user sent a duplicate
+                if user_id in sticker_record.payload['users']:
+                    await qdrant.close()
+                    return StorageController.UploadStatus.DUPLICATE
+                await qdrant.set_payload(
+                    collection_name=COLLECTION,
+                    payload={"users": sticker_record.payload['users'] + [user_id]},
+                    points=[sticker_record.id]
+                )
+                await qdrant.close()
+                return StorageController.UploadStatus.UPLOADED
+            
+            # download and embed
+            url = await sticker_file_coro
+            logger.debug(f"Sticker url: {url}")
+            vector = await CLIPClient(REDIS).process_image(url)
+            logger.debug(f"Embedding: {vector}")
+            
+            # save to qdrant storage
+            # idk y tf they made it not async
+            qdrant.upload_points(
+                collection_name=COLLECTION,
+                wait=False,
+                points=[
+                    PointStruct(
+                        id=str(uuid.uuid1()),
+                        vector=vector,
+                        payload={
+                            'users': [user_id],
+                            "unique_id": unique_id,
+                            "file_id": file_id,
+                            "type": type,
+                            "is_video": is_video,
+                            "is_animated": is_animated,
+                            "set_name": set_name,
+                            "emoji": emoji
+                        })
+                ]
+            )
+            await qdrant.close()
+            return StorageController.UploadStatus.UPLOADED
         except Exception as e:
             await qdrant.close()
             raise e
