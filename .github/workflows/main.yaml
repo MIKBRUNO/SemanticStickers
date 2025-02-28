@@ -1,13 +1,11 @@
 name: "Deploy"
 on:
-  pull_request:
-    branches: main
-    types:
-      - closed
+  push:
+    branches:
+      - 'master'
   workflow_dispatch:
 jobs:
-  deploy_to_server:
-    if: github.event.pull_request.merged == true
+  deploy:
     runs-on: ubuntu-latest
     name: Deploy
     steps:
