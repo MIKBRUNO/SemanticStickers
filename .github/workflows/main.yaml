@@ -22,7 +22,7 @@ jobs:
         envs: DOTENV
         script: |
           cd /home/deploy/SemanticStickers
-          echo $DOTENV > .env
+          echo "$DOTENV" > .env
           echo "Dotenv file updated"
           echo "Git pulling..."
           git pull

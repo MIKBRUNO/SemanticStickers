@@ -1,7 +1,5 @@
-from os import getenv
 import logging
 import traceback
-import uuid
 
 from aiogram import Router, types, F, Bot
 from aiogram.filters import MagicData
